@@ -89,7 +89,7 @@ export default function Home() {
     params.append("limit", "5");
 
     try {
-      const res = await fetch(`http://localhost:5000/api/v1/todos?${params.toString()}`);
+      const res = await fetch(`https://todo-backend-dk76.onrender.com${params.toString()}`);
       const data = await res.json();
       setTodos(data.data);
       setPagination(data.pagination);
