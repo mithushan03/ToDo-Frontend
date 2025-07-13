@@ -68,6 +68,15 @@ export default function Home() {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
+  const [selectedTodoIds, setSelectedTodoIds] = useState<string[]>([]);
+  const slogans = [
+    "Your Goals, Our Priority",
+    "Achieve More, Stress Less",
+    "Organize Your Life, One Task at a Time",
+    "Productivity Starts Here",
+    "Simplify Your Day"
+  ];
+  const [currentSloganIndex, setCurrentSloganIndex] = useState(0);
 
   const fetchTodos = async () => {
     const params = new URLSearchParams();
@@ -93,6 +102,13 @@ export default function Home() {
     fetchTodos();
   }, [search, category, status, date, page]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSloganIndex((prevIndex) => (prevIndex + 1) % slogans.length);
+    }, 5000); // Change slogan every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   const handleCreate = async (values: z.infer<typeof formSchema>) => {
     console.log("Creating TODO with values:", values);
     try {
@@ -111,7 +127,7 @@ export default function Home() {
   const handleUpdate = async (values: z.infer<typeof formSchema>) => {
     if (!selectedTodo) return;
     try {
-      await fetch(`http://localhost:5000/api/v1/todos/${selectedTodo._id}`, {
+      await fetch(`https://todo-backend-dk76.onrender.com${selectedTodo._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
@@ -124,9 +140,22 @@ export default function Home() {
     setSelectedTodo(null);
   };
 
+  const handleMarkAsCompleted = async (id: string) => {
+    try {
+      await fetch(`https://todo-backend-dk76.onrender.com${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Completed" }),
+      });
+      await fetchTodos();
+    } catch (error) {
+      console.error("Error marking todo as completed:", error);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/v1/todos/${id}`, {
+      await fetch(`https://todo-backend-dk76.onrender.com${id}`, {
         method: "DELETE",
       });
       await fetchTodos();
@@ -135,30 +164,65 @@ export default function Home() {
     }
   };
 
+  const handleMarkAsIncomplete = async (id: string) => {
+    try {
+      await fetch(`https://todo-backend-dk76.onrender.com${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Not Started" }), // Or "Pending", depending on desired incomplete state
+      });
+      await fetchTodos();
+    } catch (error) {
+      console.error("Error marking todo as incomplete:", error);
+    }
+  };
+
+  const handleCheckboxChange = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTodoIds((prev) => [...prev, id]);
+    } else {
+      setSelectedTodoIds((prev) => prev.filter((todoId) => todoId !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(selectedTodoIds.map((id) =>
+        fetch(`https://todo-backend-dk76.onrender.com${id}`, {
+          method: "DELETE",
+        })
+      ));
+      setSelectedTodoIds([]);
+      await fetchTodos();
+    } catch (error) {
+      console.error("Error deleting selected todos:", error);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 shadow-md">
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <header className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-6 px-4 shadow-lg">
         <div className="mx-auto text-center">
-          <h1 className="text-3xl font-bold">ToDo App</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight">{slogans[currentSloganIndex]}</h1>
         </div>
       </header>
-      <main className="flex-grow flex items-center justify-center p-4">
-        <Card className="w-full max-w-6xl">
-          <CardHeader>
-            <CardTitle>ToDo App</CardTitle>
+      <main className="flex-grow flex items-center justify-center p-6">
+        <Card className="w-full max-w-full rounded-xl shadow-2xl bg-white">
+          <CardHeader className="border-b pb-4">
+            <CardTitle className="text-3xl font-bold text-gray-800">My ToDo List</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4 mb-4">
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-6 mb-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-4">
                   <Input
                     placeholder="Search..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-64"
+                    className="w-64 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-md shadow-sm"
                   />
                   <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[180px] border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-md shadow-sm">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -172,11 +236,11 @@ export default function Home() {
                         id="date"
                         variant={"outline"}
                         className={cn(
-                          "w-[300px] justify-start text-left font-normal",
+                          "w-[300px] justify-start text-left font-normal border-gray-300 hover:bg-gray-50 rounded-md shadow-sm",
                           !date && "text-muted-foreground"
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4 text-gray-600" />
                         {date?.from ? (
                           date.to ? (
                             <>
@@ -187,11 +251,11 @@ export default function Home() {
                             format(date.from, "LLL dd, y")
                           )
                         ) : (
-                          <span>Pick a date</span>
+                          <span className="text-gray-500">Pick a date</span>
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 bg-white border border-gray-200 rounded-md shadow-lg" align="start">
                       <Calendar
                         initialFocus
                         mode="range"
@@ -211,23 +275,24 @@ export default function Home() {
                       setDate(undefined);
                       setPage(1);
                     }}
+                    className="border-gray-300 hover:bg-gray-50 text-gray-700 rounded-md shadow-sm"
                   >
                     Reset Filters
                   </Button>
                 </div>
                 <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-blue-500 hover:bg-blue-600 text-white">Create TODO</Button>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105">Create TODO</Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="bg-white rounded-lg shadow-xl">
                     <DialogHeader>
-                      <DialogTitle>Create TODO</DialogTitle>
+                      <DialogTitle className="text-2xl font-bold text-gray-800">Create New TODO</DialogTitle>
                     </DialogHeader>
                     <TodoForm onSubmit={handleCreate} />
                   </DialogContent>
                 </Dialog>
               </div>
-              <div className="flex flex-wrap justify-center gap-4">
+              <div className="flex flex-wrap justify-center gap-6 p-4 bg-gray-50 rounded-lg shadow-inner">
                 <div className="flex items-center space-x-2">
                   <Checkbox id="not-started" checked={status.includes("Not Started")} onCheckedChange={(checked) => {
                     if (checked) {
@@ -235,8 +300,8 @@ export default function Home() {
                     } else {
                       setStatus(status.filter((s) => s !== "Not Started"));
                     }
-                  }} />
-                  <label htmlFor="not-started">Not Started</label>
+                  }} className="text-blue-500 focus:ring-blue-500" />
+                  <label htmlFor="not-started" className="text-gray-700 font-medium">Not Started</label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox id="pending" checked={status.includes("Pending")} onCheckedChange={(checked) => {
@@ -245,8 +310,8 @@ export default function Home() {
                     } else {
                       setStatus(status.filter((s) => s !== "Pending"));
                     }
-                  }} />
-                  <label htmlFor="pending">Pending</label>
+                  }} className="text-yellow-500 focus:ring-yellow-500" />
+                  <label htmlFor="pending" className="text-gray-700 font-medium">Pending</label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox id="completed" checked={status.includes("Completed")} onCheckedChange={(checked) => {
@@ -255,33 +320,53 @@ export default function Home() {
                     } else {
                       setStatus(status.filter((s) => s !== "Completed"));
                     }
-                  }} />
-                  <label htmlFor="completed">Completed</label>
+                  }} className="text-green-500 focus:ring-green-500" />
+                  <label htmlFor="completed" className="text-gray-700 font-medium">Completed</label>
                 </div>
               </div>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created At</TableHead>
-                  <TableHead>Modified At</TableHead>
-                  <TableHead>Actions</TableHead>
+            <Table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-md">
+              <TableHeader className="bg-gray-100">
+                <TableRow className="border-b border-gray-200">
+                  <TableHead className="w-[50px] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <Checkbox
+                      checked={selectedTodoIds.length === todos.length && todos.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedTodoIds(todos.map((todo) => todo._id));
+                        } else {
+                          setSelectedTodoIds([]);
+                        }
+                      }}
+                      className="text-blue-500 focus:ring-blue-500"
+                    />
+                  </TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created At</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Modified At</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="divide-y divide-gray-100">
                 {todos.map((todo) => (
-                  <TableRow key={todo._id}>
-                    <TableCell>{todo.title}</TableCell>
-                    <TableCell>{todo.description}</TableCell>
-                    <TableCell>{todo.category}</TableCell>
-                    <TableCell>{todo.status}</TableCell>
-                    <TableCell>{new Date(todo.createdAt).toLocaleString()}</TableCell>
-                    <TableCell>{new Date(todo.modifiedAt).toLocaleString()}</TableCell>
-                    <TableCell className="flex space-x-2">
+                  <TableRow key={todo._id} className="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+                    <TableCell className="px-4 py-4 whitespace-nowrap">
+                      <Checkbox
+                        checked={selectedTodoIds.includes(todo._id)}
+                        onCheckedChange={(checked) => handleCheckboxChange(todo._id, checked as boolean)}
+                        className="text-blue-500 focus:ring-blue-500"
+                      />
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-sm font-medium text-gray-900 break-words">{todo.title}</TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-600 break-words">{todo.description}</TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-600">{todo.category}</TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-600">{todo.status}</TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-600">{new Date(todo.createdAt).toLocaleString()}</TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-600">{new Date(todo.modifiedAt).toLocaleString()}</TableCell>
+                    <TableCell className="px-4 py-4 text-right text-sm font-medium flex space-x-2 justify-end">
                       <Dialog open={isEditDialogOpen && selectedTodo?._id === todo._id} onOpenChange={(isOpen) => {
                         if (!isOpen) {
                           setEditDialogOpen(false);
@@ -292,41 +377,58 @@ export default function Home() {
                         }
                       }}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="icon" onClick={() => {
-                            setEditDialogOpen(true);
-                            setSelectedTodo(todo);
-                          }}>
+                          <Button variant="outline" size="icon" className="text-blue-600 hover:text-blue-800 border-blue-600 hover:border-blue-800 rounded-full p-2 shadow-sm hover:shadow-md transition-all duration-200">
                             <Pencil className="h-4 w-4" />
                           </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="bg-white rounded-lg shadow-xl">
                           <DialogHeader>
-                            <DialogTitle>Edit TODO</DialogTitle>
+                            <DialogTitle className="text-2xl font-bold text-gray-800">Edit TODO</DialogTitle>
                           </DialogHeader>
                           <TodoForm onSubmit={handleUpdate} initialData={selectedTodo} />
                         </DialogContent>
                       </Dialog>
-                      <Button variant="outline" size="icon" onClick={() => handleDelete(todo._id)}>
+                      <Button variant="outline" size="icon" onClick={() => handleDelete(todo._id)} className="text-red-600 hover:text-red-800 border-red-600 hover:border-red-800 rounded-full p-2 shadow-sm hover:shadow-md transition-all duration-200">
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                      {todo.status !== "Completed" ? (
+                        <Button variant="outline" size="sm" onClick={() => handleMarkAsCompleted(todo._id)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md shadow-sm transition-all duration-200">
+                          Mark as Completed
+                        </Button>
+                      ) : (
+                        status.includes("Completed") && (
+                          <Button variant="outline" size="sm" onClick={() => handleMarkAsIncomplete(todo._id)} className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md shadow-sm transition-all duration-200">
+                            Mark as Incomplete
+                          </Button>
+                        )
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            <div className="flex justify-between items-center mt-4">
+            <div className="flex justify-between items-center mt-6 p-4 bg-gray-50 rounded-lg shadow-inner">
               <Button
                 disabled={!pagination.prev}
                 onClick={() => setPage(pagination.prev.page)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md shadow-sm transition-all duration-200"
               >
                 Previous
               </Button>
-              <span>
+              <Button
+                onClick={handleBulkDelete}
+                disabled={selectedTodoIds.length === 0}
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105"
+              >
+                Delete Selected ({selectedTodoIds.length})
+              </Button>
+              <span className="text-gray-700 font-medium">
                 Page {page} of {Math.ceil(pagination.total / 5) || 1}
               </span>
               <Button
                 disabled={!pagination.next}
                 onClick={() => setPage(pagination.next.page)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md shadow-sm transition-all duration-200"
               >
                 Next
               </Button>
@@ -334,8 +436,8 @@ export default function Home() {
           </CardContent>
         </Card>
       </main>
-      <footer className="bg-gray-800 text-white p-4 text-center">
-        <p>&copy; {new Date().getFullYear()} TODO App. All rights reserved.</p>
+      <footer className="bg-gray-900 text-white p-4 text-center shadow-inner">
+        <p className="text-sm opacity-80">&copy; {new Date().getFullYear()} TODO App. All rights reserved.</p>
       </footer>
     </div>
   );
